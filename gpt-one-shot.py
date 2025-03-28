@@ -1,7 +1,9 @@
 import pickle
 from openai import OpenAI
 from utils import load_context_ikat, inference_chatgpt_all_data, parse_output_one_shot
-
+import argparse
+import sys
+# sys.path.append("PATH_TO_THE_DIRECTORY")
 
 prompt_with_query_rewrite = """You are a search quality rater evaluating the relevance of web pages. 
     Given the user query, and a web page, you must provide a score on an integer scale of 0 to 4 to indicate to what extent the given passage meets the information needs of the user. The scores have the following meanings:
@@ -140,46 +142,64 @@ def create_data_one_shot_with_context(data_path, prompt, dataset_name, context_t
 
     return flattened_inputs
 
+def one_shot_labeling(DATASET_NAME, FROM_CHECKPOINT, model_id, API_key, use_context):
 
-DATASET_NAME = 'cast22'
-FROM_CHECKPOINT= False
-model_id = "gpt-3.5-turbo-0125"
-API_key = "YOUR_API_KEY"
-use_context = False
+    model_name = f'{model_id}-one-shot-{DATASET_NAME}-context-{use_context}'
+    client = OpenAI(api_key=API_key)
+    path_output_pkl = 'outputs/'+model_name+'.pkl'
+    output_text_path = 'outputs/'+model_name+'.txt'
 
-model_name = f'{model_id}-one-shot-{DATASET_NAME}-context-{use_context}'
-client = OpenAI(api_key=API_key)
-path_output_pkl = '/outputs/'+model_name+'.pkl'
-output_text_path = '/outputs/'+model_name+'.txt'
+    flattened_inputs = []
 
+    print('================ Loading the data. ================')
+    if DATASET_NAME == 'cast22':
+        data_path = 'inputs/cast22_splitted_data.txt'
+        if use_context:
 
-flattened_inputs = []
-
-print('================ Loading the data. ================')
-if DATASET_NAME == 'cast22':
-    data_path = '/inputs/cast22_splitted_data.txt'
-    if use_context:
-
-        flattened_inputs =  create_data_one_shot_with_context(data_path, prompt_with_context, DATASET_NAME, None)
-    else:
-        flattened_inputs = create_data_one_shot(data_path, prompt_with_query_rewrite, DATASET_NAME)
+            flattened_inputs =  create_data_one_shot_with_context(data_path, prompt_with_context, DATASET_NAME, None)
+        else:
+            flattened_inputs = create_data_one_shot(data_path, prompt_with_query_rewrite, DATASET_NAME)
 
 
-elif DATASET_NAME == 'ikat23':
-    data_path = '/inputs/ikat23_splitted_data.txt'
-    if use_context:
-        context_turn = load_context_ikat('/inputs/ikat23_conversation_context.txt')
-        flattened_inputs =  create_data_one_shot_with_context(data_path, prompt_with_context_with_ptkb, DATASET_NAME, context_turn)
-    else:
-        flattened_inputs = create_data_one_shot(data_path, prompt_with_query_rewrite_with_ptkb, DATASET_NAME)
+    elif DATASET_NAME == 'ikat23':
+        data_path = 'inputs/ikat23_splitted_data.txt'
+        if use_context:
+            context_turn = load_context_ikat('inputs/ikat23_conversation_context.txt')
+            flattened_inputs =  create_data_one_shot_with_context(data_path, prompt_with_context_with_ptkb, DATASET_NAME, context_turn)
+        else:
+            flattened_inputs = create_data_one_shot(data_path, prompt_with_query_rewrite_with_ptkb, DATASET_NAME)
 
-if FROM_CHECKPOINT:
-    print('================ Loading from checkpoint ================')
-    with open(path_output_pkl, 'rb') as f:
-        flattened_inputs = pickle.load(f)
+    if FROM_CHECKPOINT:
+        print('================ Loading from checkpoint ================')
+        with open(path_output_pkl, 'rb') as f:
+            flattened_inputs = pickle.load(f)
 
-print('================ Started inference. ================')
-flattened_inputs = inference_chatgpt_all_data(flattened_inputs, path_output_pkl, client, model_id, 20)
+    print('================ Started inference. ================')
+    flattened_inputs = inference_chatgpt_all_data(flattened_inputs, path_output_pkl, client, model_id, 20)
 
-print('================ Inference finished, writing the output to text file. ================')
-parse_output_one_shot(flattened_inputs, output_text_path)
+    print('================ Inference finished, writing the output to text file. ================')
+    parse_output_one_shot(flattened_inputs, output_text_path)
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run relevance judgment with one-shot labeling.")
+    
+    parser.add_argument("--dataset_name", type=str, required=True, choices=["cast22", "ikat23"],
+                        help="Dataset name: 'cast22' or 'ikat23'")
+    parser.add_argument("--from_checkpoint", type=bool, default=False,
+                        help="Whether to start from a checkpoint (True/False)")
+    parser.add_argument("--model_id", type=str, default="gpt-3.5-turbo-0125",
+                        help="Model ID to use")
+    parser.add_argument("--api_key", type=str, required=True,
+                        help="API Key for authentication")
+    parser.add_argument("--use_context", type=bool, default=False,
+                        help="Whether to use context (True/False)")
+    
+    args = parser.parse_args()
+    print('Arguments are as follows:')
+    print(args.from_checkpoint)
+    print(args.use_context)
+
+    one_shot_labeling(args.dataset_name, args.from_checkpoint, args.model_id, args.api_key, args.use_context)
+
