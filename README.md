@@ -41,3 +41,4 @@ python gpt-two-shot.py \
 --model_id "gpt-3.5-turbo-0125" \
 --api_key  "YOUR_API_KEY" 
 ```
+Note that the ``dataset_name`` can be either "cast22" or "ikat23".
