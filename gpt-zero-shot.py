@@ -64,10 +64,6 @@ def create_data_zero_shot(data_path, prompt, dataset_name):
     return flattened_turn_pool_score
 
 
-DATASET_NAME = 'cast22'
-FROM_CHECKPOINT= False
-model_id = "gpt-3.5-turbo-0125"
-API_key = "YOUR_API_KEY"
 
 
 def zero_shot_labeling(DATASET_NAME, FROM_CHECKPOINT, model_id, API_key):
